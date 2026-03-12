@@ -1,0 +1,20 @@
+# Core dependencies
+langchain==0.1.0
+langchain-community==0.0.10
+langchain-experimental==0.0.50
+
+# For local LLM (choose one)
+ollama
+
+# For database
+sqlalchemy
+sqlite3  # Built-in, but listed for clarity
+
+# For UI
+streamlit
+pandas
+
+# For API-based LLM (optional)
+openai
+groq
+python-dotenv
