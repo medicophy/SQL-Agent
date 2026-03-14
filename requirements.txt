@@ -4,17 +4,17 @@ langchain-community==0.0.10
 langchain-experimental==0.0.50
 
 # For local LLM (choose one)
-ollama
+ollama==0.1.0
 
 # For database
-sqlalchemy
+sqlalchemy==2.0.21
 sqlite3  # Built-in, but listed for clarity
 
 # For UI
-streamlit
-pandas
+streamlit==1.29.0
+pandas==2.1.0
 
 # For API-based LLM (optional)
-openai
-groq
-python-dotenv
+openai==1.3.0
+groq==0.4.0
+python-dotenv==1.0.0
