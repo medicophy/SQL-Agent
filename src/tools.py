@@ -1,18 +1,11 @@
 import sqlite3
 import pandas as pd
-from typing import Optional, List, Dict, Any
-from langchain.tools import tool
+from typing import Optional
+from langchain_core.tools import tool
 
 class DatabaseTools:
     def __init__(self, db_path: str):
         self.db_path = db_path
-        self.connection = None
-    
-    def _get_connection(self):
-        """Get or create database connection"""
-        if self.connection is None:
-            self.connection = sqlite3.connect(self.db_path)
-        return self.connection
     
     @tool
     def execute_read_only_query(self, query: str) -> str:
@@ -21,23 +14,22 @@ class DatabaseTools:
         Use this when you need to retrieve data from the database.
         Always ensure the query is a SELECT statement only.
         """
-        # Safety check - only allow SELECT queries
         if not query.strip().upper().startswith("SELECT"):
             return "Error: Only SELECT queries are allowed for safety."
         
-        conn = self._get_connection()
+        conn = sqlite3.connect(self.db_path)
         try:
-            # Execute query and convert to DataFrame for nice formatting
             df = pd.read_sql_query(query, conn)
             if df.empty:
                 return "Query executed successfully but returned no results."
             
-            # Format results as string
             result = f"Found {len(df)} row(s):\n"
             result += df.to_string(index=False)
             return result
         except Exception as e:
             return f"Error executing query: {str(e)}"
+        finally:
+            conn.close()
     
     @tool
     def get_table_info(self, table_name: Optional[str] = None) -> str:
@@ -46,16 +38,14 @@ class DatabaseTools:
         If table_name is provided, get info for that specific table.
         Otherwise, list all tables.
         """
-        conn = self._get_connection()
+        conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         try:
             if table_name:
-                # Get column info for specific table
                 cursor.execute(f"PRAGMA table_info({table_name});")
                 columns = cursor.fetchall()
                 
-                # Get row count
                 cursor.execute(f"SELECT COUNT(*) FROM {table_name};")
                 count = cursor.fetchone()[0]
                 
@@ -69,12 +59,13 @@ class DatabaseTools:
                     info += "\n"
                 return info
             else:
-                # List all tables
                 cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
                 tables = cursor.fetchall()
                 return "Available tables:\n" + "\n".join([f"  - {t[0]}" for t in tables])
         except Exception as e:
             return f"Error getting table info: {str(e)}"
+        finally:
+            conn.close()
     
     @tool
     def get_table_sample(self, table_name: str, limit: int = 5) -> str:
@@ -82,7 +73,7 @@ class DatabaseTools:
         Get a sample of rows from a table to understand the data.
         Use this to see what data looks like before writing complex queries.
         """
-        conn = self._get_connection()
+        conn = sqlite3.connect(self.db_path)
         try:
             df = pd.read_sql_query(f"SELECT * FROM {table_name} LIMIT {limit}", conn)
             if df.empty:
@@ -91,11 +82,15 @@ class DatabaseTools:
             result = f"Sample of {len(df)} rows from {table_name}:\n"
             result += df.to_string(index=False)
             return result
-        except Exception as c:
+        except Exception as e:
             return f"Error getting sample: {str(e)}"
+        finally:
+            conn.close()
     
-    def close(self):
-        """Close database connection"""
-        if self.connection:
-            self.connection.close()
-            self.connection = None
+    def get_tools(self):
+        """Return list of tools (methods are already decorated with @tool)"""
+        return [
+            self.execute_read_only_query,
+            self.get_table_info,
+            self.get_table_sample
+        ]
