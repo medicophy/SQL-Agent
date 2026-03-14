@@ -1,28 +1,19 @@
 import sqlite3
 import pandas as pd
 from typing import Optional
-from langchain_core.tools import tool
+from langchain_core.tools import StructuredTool
 
 class DatabaseTools:
     def __init__(self, db_path: str):
         self.db_path = db_path
     
-    @tool
-    def execute_read_only_query(self, query: str) -> str:
-        """
-        Execute a SQL SELECT query and return results.
-        Use this when you need to retrieve data from the database.
-        Always ensure the query is a SELECT statement only.
-        """
-        if not query.strip().upper().startswith("SELECT"):
-            return "Error: Only SELECT queries are allowed for safety."
-        
+    def _execute_read_only_query(self, query: str) -> str:
+        """Execute a SQL SELECT query and return results."""
         conn = sqlite3.connect(self.db_path)
         try:
             df = pd.read_sql_query(query, conn)
             if df.empty:
                 return "Query executed successfully but returned no results."
-            
             result = f"Found {len(df)} row(s):\n"
             result += df.to_string(index=False)
             return result
@@ -31,13 +22,8 @@ class DatabaseTools:
         finally:
             conn.close()
     
-    @tool
-    def get_table_info(self, table_name: Optional[str] = None) -> str:
-        """
-        Get information about database tables.
-        If table_name is provided, get info for that specific table.
-        Otherwise, list all tables.
-        """
+    def _get_table_info(self, table_name: Optional[str] = None) -> str:
+        """Get information about database tables. If no table name provided, lists all tables."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -45,13 +31,10 @@ class DatabaseTools:
             if table_name:
                 cursor.execute(f"PRAGMA table_info({table_name});")
                 columns = cursor.fetchall()
-                
                 cursor.execute(f"SELECT COUNT(*) FROM {table_name};")
                 count = cursor.fetchone()[0]
                 
-                info = f"Table: {table_name}\n"
-                info += f"Total rows: {count}\n"
-                info += "Columns:\n"
+                info = f"Table: {table_name}\nTotal rows: {count}\nColumns:\n"
                 for col in columns:
                     info += f"  - {col[1]} ({col[2]})"
                     if col[5]:
@@ -67,18 +50,13 @@ class DatabaseTools:
         finally:
             conn.close()
     
-    @tool
-    def get_table_sample(self, table_name: str, limit: int = 5) -> str:
-        """
-        Get a sample of rows from a table to understand the data.
-        Use this to see what data looks like before writing complex queries.
-        """
+    def _get_table_sample(self, table_name: str, limit: int = 5) -> str:
+        """Get sample rows from a table. Specify table_name and optional limit."""
         conn = sqlite3.connect(self.db_path)
         try:
             df = pd.read_sql_query(f"SELECT * FROM {table_name} LIMIT {limit}", conn)
             if df.empty:
                 return f"Table {table_name} is empty."
-            
             result = f"Sample of {len(df)} rows from {table_name}:\n"
             result += df.to_string(index=False)
             return result
@@ -88,9 +66,24 @@ class DatabaseTools:
             conn.close()
     
     def get_tools(self):
-        """Return list of tools (methods are already decorated with @tool)"""
+        """Return list of tools as StructuredTool objects"""
         return [
-            self.execute_read_only_query,
-            self.get_table_info,
-            self.get_table_sample
+            StructuredTool.from_function(
+                func=self._execute_read_only_query,
+                name="execute_read_only_query",
+                description="Execute a SQL SELECT query and return results.",
+                args_schema=None  # Let LangChain infer from function signature
+            ),
+            StructuredTool.from_function(
+                func=self._get_table_info,
+                name="get_table_info",
+                description="Get information about database tables. If no table name provided, lists all tables.",
+                args_schema=None
+            ),
+            StructuredTool.from_function(
+                func=self._get_table_sample,
+                name="get_table_sample",
+                description="Get sample rows from a table. Specify table_name and optional limit.",
+                args_schema=None
+            )
         ]

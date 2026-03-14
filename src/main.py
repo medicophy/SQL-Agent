@@ -20,7 +20,7 @@ def main():
     
     # Initialize agent
     print("\nInitializing agent...")
-    agent = SQLAgent(db_path, llm_type="ollama")
+    agent = SQLAgent(db_path, llm_type="gemini")
     print("Ready! Type 'exit' to quit.\n")
     
     # Interactive loop
